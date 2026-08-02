@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.DS_Store
+.vercel/
+
+# Rohmaterial bleibt lokal, nur die Derivate in public/m/ landen im Repo
+media/photos/*
+media/beats/*
+!media/photos/README.md
+!media/beats/README.md
+!media/beats/links.json
+
+# Cache des Media-Builds
+scripts/.media-cache.json

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>TagoBeats — Travel</title>
+<meta name="description" content="Reisefotos von Robin Busse, unterlegt mit eigenen Beats." />
+<meta name="theme-color" content="#12100E" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="preload" href="/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="preload" href="/fonts/spacemono-latin-400.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="preload" href="/m/manifest.json" as="fetch" crossorigin />
+
+<!-- Kritisches CSS inline: der Boot-Screen muss stehen bevor irgendwas nachgeladen wird -->
+<style>
+  @font-face{font-family:'Archivo';font-style:normal;font-weight:100 900;font-stretch:100%;font-display:swap;src:url('/fonts/archivo-latin.woff2') format('woff2')}
+  @font-face{font-family:'Space Mono';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/spacemono-latin-400.woff2') format('woff2')}
+  @font-face{font-family:'Space Mono';font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/spacemono-latin-700.woff2') format('woff2')}
+  html,body{margin:0;padding:0;height:100%;background:#12100E;color:#ECE7DE}
+  body{font-family:'Archivo',system-ui,sans-serif;-webkit-font-smoothing:antialiased;overscroll-behavior:none}
+  #tv-boot{position:fixed;inset:0;z-index:100;background:#0A0908;display:grid;place-content:center;justify-items:center;gap:10px;
+    transition:opacity .5s ease;-webkit-tap-highlight-color:transparent}
+  #tv-boot.is-gone{opacity:0;pointer-events:none}
+  .boot-mark{font-weight:800;font-size:clamp(2rem,11vw,3.4rem);letter-spacing:-.045em;line-height:.9;color:#F2EEE6}
+  .boot-sub{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.34em;color:rgba(236,231,222,.62)}
+  .boot-enter{appearance:none;margin-top:26px;background:none;border:0;padding:14px 4px;cursor:pointer;
+    font-family:'Space Mono',monospace;font-size:12px;letter-spacing:.3em;color:#00FDDC;opacity:0;
+    transition:opacity .45s ease;pointer-events:none}
+  .boot-enter.is-on{opacity:1;pointer-events:auto;animation:boot-pulse 2.4s ease-in-out infinite}
+  .boot-enter:focus{outline:none}
+  .boot-enter:focus-visible{outline:1px solid rgba(0,253,220,.5);outline-offset:8px}
+  @keyframes boot-pulse{0%,100%{opacity:1}50%{opacity:.45}}
+  .boot-bar{position:fixed;left:0;right:0;bottom:0;height:2px;background:rgba(236,231,222,.12)}
+  .boot-bar i{display:block;height:100%;width:0%;background:#00FDDC;box-shadow:0 0 12px rgba(0,253,220,.55)}
+  @media (prefers-reduced-motion:reduce){.boot-enter.is-on{animation:none}}
+</style>
+</head>
+<body>
+
+<div id="tv-boot">
+  <div class="boot-mark">TAGOBEATS</div>
+  <div class="boot-sub">TRAVEL</div>
+  <button class="boot-enter" id="tv-enter" type="button">TAP TO ENTER</button>
+  <div class="boot-bar"><i id="tv-bar"></i></div>
+</div>
+
+<main class="tv" id="tv" inert>
+  <div class="tv-fog" aria-hidden="true"></div>
+  <div class="tv-glow" aria-hidden="true"></div>
+
+  <a class="tv-home" href="https://tagobeats.com" rel="noopener">TAGOBEATS<i>/</i><span>TRAVEL</span></a>
+
+  <header class="tv-meta">
+    <div class="tv-count"><span id="tv-idx">01</span><i>/</i><span id="tv-total">00</span></div>
+    <h1 class="tv-album" id="tv-album"></h1>
+    <p class="tv-sub" id="tv-sub"></p>
+  </header>
+
+  <div class="tv-stage">
+    <div class="tv-track" id="tv-track" tabindex="0" aria-label="Fotostrecke"></div>
+    <button class="tv-arrow tv-arrow-prev" id="tv-prev" type="button" aria-label="Vorheriges Foto"></button>
+    <button class="tv-arrow tv-arrow-next" id="tv-next" type="button" aria-label="Nächstes Foto"></button>
+  </div>
+
+  <nav class="tv-strip" id="tv-strip" aria-label="Alle Fotos"></nav>
+
+  <div class="tv-sound" id="tv-sound" hidden>
+    <button class="tv-sound-btn" id="tv-sound-btn" type="button" aria-label="Ton an oder aus">
+      <span class="tv-bars"><i></i><i></i><i></i><i></i></span>
+    </button>
+    <a class="tv-now" id="tv-now" target="_blank" rel="noopener"></a>
+  </div>
+</main>
+
+<div class="tv-grain" aria-hidden="true"></div>
+
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>
