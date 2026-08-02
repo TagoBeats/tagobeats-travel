@@ -6,6 +6,7 @@ dist/
 # Rohmaterial bleibt lokal, nur die Derivate in public/m/ landen im Repo
 media/photos/*
 media/beats/*
+media/_dupes/
 !media/photos/README.md
 !media/beats/README.md
 !media/beats/links.json

@@ -34,7 +34,10 @@ export interface Player {
 
 export function createPlayer(beats: Beat[]): Player {
   const root = document.getElementById('tv-sound') as HTMLElement;
-  const button = document.getElementById('tv-sound-btn') as HTMLButtonElement;
+  const btnPlay = document.getElementById('tv-play') as HTMLButtonElement;
+  const btnMute = document.getElementById('tv-mute') as HTMLButtonElement;
+  const btnPrev = document.getElementById('tv-track-prev') as HTMLButtonElement;
+  const btnNext = document.getElementById('tv-track-next') as HTMLButtonElement;
   const label = document.getElementById('tv-now') as HTMLAnchorElement;
 
   if (!beats.length) {
@@ -46,6 +49,7 @@ export function createPlayer(beats: Beat[]): Player {
   const queue = shuffle(beats);
   let cursor = 0;
   let muted = false;
+  let paused = false;
   let started = false;
   let fading = false;
   let warmed = false;
@@ -125,8 +129,13 @@ export function createPlayer(beats: Beat[]): Player {
     spare.load();
   }
 
-  function advance() {
-    cursor = (cursor + 1) % queue.length;
+  /**
+   * Wechselt auf queue[i]. Der automatische Uebergang am Songende blendet ueber,
+   * ein Tap auf Weiter/Zurueck schneidet hart: ein angeforderter Sprung soll sofort
+   * hoerbar sein, nicht anderthalb Sekunden spaeter.
+   */
+  function goToTrack(i: number, fade: boolean) {
+    cursor = ((i % queue.length) + queue.length) % queue.length;
     const beat = queue[cursor];
     warmed = false;
 
@@ -135,20 +144,22 @@ export function createPlayer(beats: Beat[]): Player {
     spare = outgoing;
 
     // Handler des abgeloesten Elements loesen, sonst feuert dessen 'ended' spaeter
-    // ein zweites advance()
+    // einen zweiten Wechsel
     outgoing.onended = null;
     outgoing.ontimeupdate = null;
 
     // Wenn warmNext() schon gegriffen hat, steht die Quelle bereits und ist gepuffert
     if (!current.src.endsWith(beat.src)) current.src = beat.src;
     current.preload = 'auto';
-    current.volume = canFade ? 0 : 1;
     current.muted = muted;
-    current.currentTime = 0;
-    play(current);
+    if (current.currentTime) current.currentTime = 0;
+
+    const doFade = fade && canFade;
+    current.volume = doFade ? 0 : 1;
+    if (!paused) play(current);
     paintTitle(beat);
 
-    if (canFade) {
+    if (doFade) {
       fading = true;
       ramp(current, 1, FADE_MS, () => { fading = false; });
       ramp(outgoing, 0, FADE_MS, () => {
@@ -157,12 +168,17 @@ export function createPlayer(beats: Beat[]): Player {
         outgoing.load();
       });
     } else {
+      fading = false;
       outgoing.pause();
       outgoing.removeAttribute('src');
+      outgoing.load();
     }
 
     attach(current);
   }
+
+  const advance = () => goToTrack(cursor + 1, true);
+  const skip = (dir: number) => goToTrack(cursor + dir, false);
 
   function attach(el: HTMLAudioElement) {
     el.onended = () => advance();
@@ -177,13 +193,24 @@ export function createPlayer(beats: Beat[]): Player {
 
   attach(current);
 
-  /* ------------------------------------------------------------- Mute */
+  /* ------------------------------------------------------ Pause und Mute */
 
+  /** Stumm laesst weiterlaufen, Pause haelt an. Zwei Knoepfe, zwei Zustaende. */
   function setMuted(next: boolean) {
     muted = next;
+    current.muted = muted;
+    spare.muted = muted;
     root.classList.toggle('is-muted', muted);
-    button.setAttribute('aria-pressed', String(muted));
-    if (muted) {
+    btnMute.setAttribute('aria-pressed', String(muted));
+    btnMute.setAttribute('aria-label', muted ? 'Ton anschalten' : 'Stumm schalten');
+  }
+
+  function setPaused(next: boolean) {
+    paused = next;
+    root.classList.toggle('is-paused', paused);
+    btnPlay.setAttribute('aria-pressed', String(paused));
+    btnPlay.setAttribute('aria-label', paused ? 'Weiter abspielen' : 'Pause');
+    if (paused) {
       current.pause();
       spare.pause();
     } else if (started) {
@@ -192,21 +219,26 @@ export function createPlayer(beats: Beat[]): Player {
     }
   }
 
-  button.addEventListener('click', () => setMuted(!muted));
+  btnMute.addEventListener('click', () => setMuted(!muted));
+  btnPlay.addEventListener('click', () => setPaused(!paused));
+  btnPrev.addEventListener('click', () => skip(-1));
+  btnNext.addEventListener('click', () => skip(1));
 
+  // Tabwechsel haelt nur an, wenn Robin nicht selbst schon pausiert hat
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       current.pause();
       spare.pause();
-    } else if (started && !muted) {
+    } else if (started && !paused) {
       play(current);
     }
   });
 
   if ('mediaSession' in navigator) {
-    navigator.mediaSession.setActionHandler('play', () => setMuted(false));
-    navigator.mediaSession.setActionHandler('pause', () => setMuted(true));
-    navigator.mediaSession.setActionHandler('nexttrack', () => advance());
+    navigator.mediaSession.setActionHandler('play', () => setPaused(false));
+    navigator.mediaSession.setActionHandler('pause', () => setPaused(true));
+    navigator.mediaSession.setActionHandler('nexttrack', () => skip(1));
+    navigator.mediaSession.setActionHandler('previoustrack', () => skip(-1));
   }
 
   return {

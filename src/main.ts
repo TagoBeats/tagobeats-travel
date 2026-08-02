@@ -2,6 +2,7 @@ import './styles.css';
 import { createGallery } from './gallery';
 import { createPlayer } from './audio';
 import { createLoader } from './loader';
+import { createZoom, lockPageScale } from './zoom';
 import type { Manifest, Photo } from './types';
 
 const EMPTY: Manifest = { generated: '', albums: [], photos: [], beats: [] };
@@ -24,9 +25,24 @@ function showEmptyState() {
   if (sub) sub.textContent = 'Bilder in media/photos/ legen, dann npm run media';
 }
 
+/**
+ * Die Kopfzeile liegt als Overlay ueber der Buehne. Wieviel Platz sie braucht, haengt
+ * am Albumnamen und daran, ob die Datumszeile umbricht. Auf einem iPhone SE tut sie das,
+ * deshalb wird die Hoehe gemessen statt geschaetzt.
+ */
+function trackHeaderHeight() {
+  const meta = document.querySelector('.tv-meta') as HTMLElement | null;
+  if (!meta) return;
+  const write = () => document.documentElement.style.setProperty('--head-h', `${Math.ceil(meta.offsetHeight)}px`);
+  write();
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(write).observe(meta);
+  else window.addEventListener('resize', write);
+}
+
 async function boot() {
   const loader = createLoader();
   const root = document.getElementById('tv') as HTMLElement;
+  lockPageScale();
 
   const manifestPromise = loadManifest();
   loader.track(manifestPromise, 5000);
@@ -44,6 +60,8 @@ async function boot() {
 
   const gallery = createGallery(manifest.photos);
   loader.track(gallery.ready(), 6000);
+  trackHeaderHeight();
+  createZoom(document.getElementById('tv-track') as HTMLElement);
 
   const player = createPlayer(manifest.beats);
   loader.track(player.ready(), 4000);

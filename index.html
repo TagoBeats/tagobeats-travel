@@ -2,7 +2,8 @@
 <html lang="de">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<!-- maximum-scale/user-scalable sperren den Seiten-Zoom. Gezoomt wird nur das Foto, siehe src/zoom.ts -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <title>TagoBeats — Travel</title>
 <meta name="description" content="Reisefotos von Robin Busse, unterlegt mit eigenen Beats." />
 <meta name="theme-color" content="#12100E" />
@@ -52,8 +53,10 @@
 
   <header class="tv-meta">
     <div class="tv-count"><span id="tv-idx">01</span><i>/</i><span id="tv-total">00</span></div>
-    <h1 class="tv-album" id="tv-album"></h1>
-    <p class="tv-sub" id="tv-sub"></p>
+    <div class="tv-line">
+      <h1 class="tv-album" id="tv-album"></h1>
+      <p class="tv-sub" id="tv-sub"></p>
+    </div>
   </header>
 
   <div class="tv-stage">
@@ -62,14 +65,30 @@
     <button class="tv-arrow tv-arrow-next" id="tv-next" type="button" aria-label="Nächstes Foto"></button>
   </div>
 
-  <nav class="tv-strip" id="tv-strip" aria-label="Alle Fotos"></nav>
+  <!-- Playbar sitzt direkt ueber dem Filmstreifen, alles statisch: nichts blinkt, nichts pulst -->
+  <div class="tv-bar" id="tv-sound" hidden>
+    <div class="tv-bar-ctl">
+      <button class="tv-btn" id="tv-track-prev" type="button" aria-label="Vorheriger Beat">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 5.5v13L9 12l9-6.5Z"/><rect x="5.5" y="5.5" width="2" height="13" rx=".6"/></svg>
+      </button>
+      <button class="tv-btn tv-btn-play" id="tv-play" type="button" aria-label="Pause" aria-pressed="false">
+        <svg class="ico-pause" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="5" width="3.4" height="14" rx=".7"/><rect x="13.6" y="5" width="3.4" height="14" rx=".7"/></svg>
+        <svg class="ico-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.2 19 12 8 18.8V5.2Z"/></svg>
+      </button>
+      <button class="tv-btn" id="tv-track-next" type="button" aria-label="Nächster Beat">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5.5v13L15 12 6 5.5Z"/><rect x="16.5" y="5.5" width="2" height="13" rx=".6"/></svg>
+      </button>
+    </div>
 
-  <div class="tv-sound" id="tv-sound" hidden>
-    <button class="tv-sound-btn" id="tv-sound-btn" type="button" aria-label="Ton an oder aus">
-      <span class="tv-bars"><i></i><i></i><i></i><i></i></span>
-    </button>
     <a class="tv-now" id="tv-now" target="_blank" rel="noopener"></a>
+
+    <button class="tv-btn tv-btn-mute" id="tv-mute" type="button" aria-label="Stumm schalten" aria-pressed="false">
+      <svg class="ico-loud" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.4L12 5.4v13.2L7.4 14.5H4v-5Z"/><path d="M15.4 9a4.2 4.2 0 0 1 0 6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M17.9 6.6a7.6 7.6 0 0 1 0 10.8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+      <svg class="ico-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.4L12 5.4v13.2L7.4 14.5H4v-5Z"/><path d="m16 9.6 4.4 4.8M20.4 9.6 16 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+    </button>
   </div>
+
+  <nav class="tv-strip" id="tv-strip" aria-label="Alle Fotos"></nav>
 </main>
 
 <div class="tv-grain" aria-hidden="true"></div>

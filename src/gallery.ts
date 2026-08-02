@@ -50,7 +50,18 @@ export function createGallery(photos: Photo[]): Gallery {
   photos.forEach((photo, i) => {
     const slide = document.createElement('div');
     slide.className = 'tv-slide';
-    slide.style.setProperty('--lqip', `url("${photo.lqip}")`);
+
+    // Rahmen ist immer 4:3 oder 3:4, damit die Buehne beim Wischen nicht springt.
+    // 157 der 164 Fotos treffen das exakt, der Rest sitzt mit contain drin und
+    // faellt hinten auf den eigenen Blur-Platzhalter, statt beschnitten zu werden.
+    const frame = document.createElement('div');
+    frame.className = 'tv-frame';
+    const wide = photo.w >= photo.h;
+    frame.style.setProperty('--ar', wide ? '4 / 3' : '3 / 4');
+    frame.style.setProperty('--arn', wide ? '1.3333' : '0.75');
+    frame.style.setProperty('--lqip', `url("${photo.lqip}")`);
+    slide.appendChild(frame);
+
     trackFrag.appendChild(slide);
     slides.push(slide);
 
@@ -103,7 +114,7 @@ export function createGallery(photos: Photo[]): Gallery {
     else img.addEventListener('load', reveal, { once: true });
 
     picture.appendChild(img);
-    slide.appendChild(picture);
+    (slide.querySelector('.tv-frame') ?? slide).appendChild(picture);
     return img;
   }
 

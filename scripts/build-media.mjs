@@ -120,6 +120,68 @@ async function fingerprint(file) {
   return createHash('sha1').update(buf).digest('hex').slice(0, 12);
 }
 
+/* ---------------------------------------------------------------- Doppel */
+
+/*
+ * Zwei Stufen, weil zwei Arten von Doppeln vorkommen. "Foto 2.jpg" neben "Foto.jpg"
+ * ist meist byte-identisch, das faellt ueber den Datei-Hash und kostet kein Encoding.
+ * Manche Kopien unterscheiden sich aber nur in ein paar EXIF-Bytes und haben deshalb
+ * einen anderen Datei-Hash, obwohl die Pixel gleich sind. Dafuer die zweite Stufe.
+ */
+
+/** Bei gleichem Inhalt gewinnt der kuerzere Dateiname, also das Original ohne " 2". */
+const preferOriginal = (a, b) => {
+  const na = path.basename(a);
+  const nb = path.basename(b);
+  return na.length - nb.length || na.localeCompare(nb, 'de');
+};
+
+function pickWinners(groups, nameOf) {
+  const winners = new Set();
+  const dropped = [];
+  for (const list of groups.values()) {
+    const sorted = list.slice().sort((a, b) => preferOriginal(nameOf(a), nameOf(b)));
+    winners.add(sorted[0]);
+    for (const loser of sorted.slice(1)) dropped.push([nameOf(loser), nameOf(sorted[0])]);
+  }
+  return { winners, dropped };
+}
+
+function groupBy(items, keyOf) {
+  const groups = new Map();
+  for (const item of items) {
+    const key = keyOf(item);
+    if (key == null) continue;
+    const list = groups.get(key);
+    if (list) list.push(item);
+    else groups.set(key, [item]);
+  }
+  return groups;
+}
+
+/** Stufe 1: byte-identische Dateien raus, bevor irgendwas encodiert wird. */
+async function dropByteDupes(files) {
+  const fps = await pool(files, 8, (file) => fingerprint(file));
+  const groups = groupBy(
+    files.map((file, i) => ({ file, fp: fps[i] })),
+    (r) => r.fp
+  );
+  const { winners, dropped } = pickWinners(groups, (r) => r.file);
+  const keepSet = new Set([...winners].map((r) => r.file));
+  return { keep: files.filter((f) => keepSet.has(f)), dropped };
+}
+
+/** Signatur ueber die dekodierten Pixel, unabhaengig von Metadaten und Kompression. */
+async function pixelSig(input) {
+  const raw = await sharp(input, { failOn: 'none' })
+    .rotate()
+    .greyscale()
+    .resize(32, 32, { fit: 'fill' })
+    .raw()
+    .toBuffer();
+  return createHash('sha1').update(raw).digest('hex').slice(0, 16);
+}
+
 async function pool(items, limit, worker) {
   const results = new Array(items.length);
   let cursor = 0;
@@ -203,7 +265,12 @@ async function processPhoto(file, album, albumSlug, name, cache) {
     const stillThere = await Promise.all(
       cached.entry.widths.map((w) => exists(path.join(outDir, `${slug}-${w}.avif`)))
     );
-    if (stillThere.every(Boolean)) return { entry: cached.entry, skipped: true };
+    if (stillThere.every(Boolean)) {
+      // Aelterer Cache kennt die Pixel-Signatur noch nicht: einmal nachziehen.
+      // Kostet nur einen Decode, kein erneutes Encoding.
+      if (!cached.sig) cached.sig = await pixelSig(file);
+      return { entry: cached.entry, sig: cached.sig, skipped: true };
+    }
   }
 
   await fs.mkdir(outDir, { recursive: true });
@@ -225,6 +292,7 @@ async function processPhoto(file, album, albumSlug, name, cache) {
 
   // Einmal in den Speicher dekodieren, dann alle Groessen daraus ableiten
   const base = await input.toBuffer();
+  const sig = await pixelSig(base);
 
   const webpWidths = widths.filter((w) => WEBP_WIDTHS.includes(w));
 
@@ -288,8 +356,8 @@ async function processPhoto(file, album, albumSlug, name, cache) {
     bytes,
   };
 
-  cache[rel] = { fp, recipe: RECIPE, entry };
-  return { entry, skipped: false };
+  cache[rel] = { fp, recipe: RECIPE, sig, entry };
+  return { entry, sig, skipped: false };
 }
 
 /* ------------------------------------------------------------------- beats */
@@ -434,6 +502,7 @@ async function main() {
   const photos = [];
   const albumMeta = [];
   let skippedPhotos = 0;
+  let droppedDupes = 0;
   let totalBytes = 0;
 
   for (const album of albums) {
@@ -444,7 +513,13 @@ async function main() {
 
     console.log(`\n  ${album.name} (${album.files.length} Bilder)`);
 
-    const jobs = album.files.map((file) => {
+    const { keep: files, dropped: byteDupes } = await dropByteDupes(album.files);
+    for (const [loser, winner] of byteDupes) {
+      console.log(`    Doppel uebersprungen: ${path.basename(loser)} = ${path.basename(winner)}`);
+      droppedDupes++;
+    }
+
+    const jobs = files.map((file) => {
       let slug = slugify(path.basename(file, path.extname(file)));
       let n = 2;
       while (used.has(slug)) slug = `${slugify(path.basename(file, path.extname(file)))}-${n++}`;
@@ -462,14 +537,26 @@ async function main() {
         } else {
           console.log(`    ${path.basename(file)} -> ${res.entry.widths.join('/')} px, ${prettyBytes(res.entry.bytes)}`);
         }
-        return res.entry;
+        return res;
       } catch (err) {
         console.error(`    FEHLER bei ${path.basename(file)}: ${err.message}`);
         return null;
       }
     });
 
-    const entries = results.filter(Boolean);
+    // Stufe 2: gleiche Pixel, anderer Datei-Hash. Die Derivate der Verlierer raeumt
+    // prune() am Ende weg, weil sie im Manifest nicht mehr auftauchen.
+    const processed = results.filter(Boolean);
+    const sigGroups = groupBy(processed, (r) => r.sig);
+    const { winners: sigWinners, dropped: pixelDupes } = pickWinners(sigGroups, (r) => r.entry.file);
+    for (const [loser, winner] of pixelDupes) {
+      console.log(`    Doppel verworfen (gleiche Pixel): ${loser} = ${winner}`);
+      droppedDupes++;
+    }
+
+    const entries = processed
+      .filter((r) => !r.sig || sigWinners.has(r))
+      .map((r) => r.entry);
 
     // Sortierung: order.txt gewinnt, danach Aufnahmedatum, danach Dateiname
     const orderIndex = new Map(order.map((name, i) => [name, i]));
@@ -541,7 +628,7 @@ async function main() {
   const removed = await prune(photos, beats);
 
   console.log(
-    `\nFertig: ${photos.length} Fotos (${skippedPhotos} unveraendert), ${beats.length} Beats (${skippedBeats} unveraendert), ${prettyBytes(totalBytes)} neu geschrieben` +
+    `\nFertig: ${photos.length} Fotos (${skippedPhotos} unveraendert${droppedDupes ? `, ${droppedDupes} Doppel aussortiert` : ''}), ${beats.length} Beats (${skippedBeats} unveraendert), ${prettyBytes(totalBytes)} neu geschrieben` +
       (removed ? `, ${removed} verwaiste Dateien geloescht` : '')
   );
   if (!photos.length) console.log('Hinweis: noch keine Bilder in media/photos/ gefunden.');
