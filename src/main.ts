@@ -8,11 +8,31 @@ import type { Manifest, Photo } from './types';
 
 const EMPTY: Manifest = { generated: '', albums: [], photos: [], beats: [] };
 
+/*
+ * Das Manifest traegt die Pfade ohne fuehrenden Schraegstrich, damit die Galerie nicht
+ * an der Wurzel einer Domain kleben muss. Hier bekommen sie einmal das Praefix des
+ * Deployments vorgehaengt, danach arbeitet der Rest der Anwendung wie vorher mit
+ * fertigen URLs.
+ */
+const BASE = import.meta.env.BASE_URL;
+
+const asset = (p: string) => (/^(https?:)?\/\//.test(p) || p.startsWith('/') ? p : BASE + p);
+
+function resolvePaths(manifest: Manifest): Manifest {
+  for (const photo of manifest.photos) {
+    photo.base = asset(photo.base);
+    photo.thumb = asset(photo.thumb);
+    photo.fallback = asset(photo.fallback);
+  }
+  for (const beat of manifest.beats) beat.src = asset(beat.src);
+  return manifest;
+}
+
 async function loadManifest(): Promise<Manifest> {
   try {
-    const res = await fetch('/m/manifest.json', { cache: 'no-cache' });
+    const res = await fetch(`${BASE}m/manifest.json`, { cache: 'no-cache' });
     if (!res.ok) throw new Error(String(res.status));
-    return (await res.json()) as Manifest;
+    return resolvePaths((await res.json()) as Manifest);
   } catch (err) {
     console.error('manifest.json konnte nicht geladen werden', err);
     return EMPTY;

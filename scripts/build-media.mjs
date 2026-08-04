@@ -786,6 +786,9 @@ async function main() {
       const ia = orderIndex.has(a.file) ? orderIndex.get(a.file) : Infinity;
       const ib = orderIndex.has(b.file) ? orderIndex.get(b.file) : Infinity;
       if (ia !== ib) return ia - ib;
+      // Fotos ohne Aufnahmezeit ans Ende. Weitergereichte Bilder haben oft kein EXIF
+      // mehr und landen sonst allein wegen ihres Dateinamens vorne in der Galerie.
+      if (!a.date !== !b.date) return a.date ? -1 : 1;
       if (a.date && b.date && a.date !== b.date) return a.date < b.date ? -1 : 1;
       return a.file.localeCompare(b.file, 'de');
     });
@@ -852,6 +855,23 @@ async function main() {
   }
 
   /* --- Manifest --- */
+
+  /*
+   * Pfade ohne fuehrenden Schraegstrich, damit die Galerie auch in einem Unterordner
+   * ausgeliefert werden kann (sie haengt unter tagobeats.com/travel). Das Frontend
+   * setzt beim Laden das Praefix des Deployments davor.
+   *
+   * Bewusst hier und nicht dort, wo die Pfade entstehen: gecachte Eintraege wuerden
+   * ihre alte Schreibweise sonst behalten, bis alle Bilder neu gerechnet werden.
+   */
+  const rel = (p) => (typeof p === 'string' && p.startsWith('/') ? p.slice(1) : p);
+  for (const photo of photos) {
+    photo.base = rel(photo.base);
+    photo.thumb = rel(photo.thumb);
+    photo.fallback = rel(photo.fallback);
+  }
+  for (const beat of beats) beat.src = rel(beat.src);
+
   const manifest = {
     generated: new Date().toISOString(),
     albums: albumMeta,

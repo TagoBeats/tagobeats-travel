@@ -14,3 +14,4 @@ media/_alt/
 
 # Cache des Media-Builds
 scripts/.media-cache.json
+.vercel

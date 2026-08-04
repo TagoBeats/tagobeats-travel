@@ -1,0 +1,7 @@
+# Rohmaterial und Cache bleiben lokal. Hochgeladen wird nur, was der Build braucht:
+# die Quellen plus public/m mit den fertigen Derivaten.
+node_modules
+dist
+media
+scripts/.media-cache.json
+.DS_Store

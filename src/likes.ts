@@ -34,8 +34,14 @@ function save(liked: Set<string>) {
 
 function report(photo: string, on: boolean) {
   try {
-    // keepalive, damit der Aufruf auch beim Weiterwischen oder Schliessen rausgeht
-    fetch('/api/like', {
+    /*
+     * Praefix des Deployments davor, sonst landet der Aufruf auf der Hauptdomain:
+     * die Galerie haengt unter tagobeats.com/travel, und tagobeats.com/api gehoert
+     * der Website mit ihren eigenen Funktionen.
+     *
+     * keepalive, damit der Aufruf auch beim Weiterwischen oder Schliessen rausgeht.
+     */
+    fetch(`${import.meta.env.BASE_URL}api/like`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ photo, on }),
