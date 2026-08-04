@@ -1,0 +1,27 @@
+{
+  "_doc": [
+    "Korrekturen fuer falsch gestellte Kamera-Uhren.",
+    "",
+    "cam:   Teilstring des Kameranamens aus dem EXIF, Gross- und Kleinschreibung egal.",
+    "       Fehlt das Feld, gilt der Eintrag fuer jede Kamera.",
+    "from,  Fenster in der FALSCHEN Zeit, also so wie es im EXIF steht.",
+    "to:    'to' ist ausschliesslich.",
+    "hours: Verschiebung in Stunden, darf gebrochen sein (Viertelstunden-Zonen).",
+    "",
+    "Die Korrektur rechnet immer vom EXIF-Rohwert, mehrfaches Ausfuehren aendert also",
+    "nichts. Wird ein Eintrag hier entfernt, faellt die Zeit auf den Rohwert zurueck.",
+    "",
+    "Belegen laesst sich so ein Versatz ueber die Bildhelligkeit: Fotos, die laut",
+    "Zeitstempel mitten in der Nacht entstanden sind, aber Tageslicht zeigen."
+  ],
+
+  "fixes": [
+    {
+      "cam": "DSC-HX400V",
+      "from": "2026-07-26 00:00",
+      "to": "2026-07-27 05:00",
+      "hours": -7,
+      "note": "Sony lief am ersten Tag noch auf deutscher Zeit (CEST gegen CDT). Die Bilder von 23:03 bis 03:31 zeigen hellen Tag, erst DSC01401 um 04:13 (= 21:13 Ortszeit) ist dunkel. Zwischen 04:13 und 11:38 Kamerazeit wurde die Uhr gestellt."
+    }
+  ]
+}

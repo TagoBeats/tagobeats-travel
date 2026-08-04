@@ -44,9 +44,10 @@ body {
   position: fixed;
   inset: 0;
   display: grid;
-  grid-template-rows: 1fr auto auto;
+  grid-template-rows: 1fr auto auto auto;
   grid-template-areas:
     'stage'
+    'react'
     'bar'
     'strip';
   opacity: 0;
@@ -64,6 +65,70 @@ body {
 
 .tv-bar { grid-area: bar; }
 .tv-strip { grid-area: strip; }
+
+/* ------------------------------------------------------------------ Herz */
+
+.tv-react {
+  grid-area: react;
+  position: relative;
+  z-index: 7;
+  display: flex;
+  justify-content: flex-end;
+  padding: 2px var(--pad) 6px;
+}
+
+.tv-like {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--text);
+  opacity: .5;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity .2s ease, color .2s ease;
+}
+
+.tv-like svg {
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+  transition: fill .18s ease;
+}
+
+.tv-like:hover { opacity: .85; }
+
+.tv-like.is-on {
+  color: var(--accent);
+  opacity: 1;
+}
+
+.tv-like.is-on svg { fill: currentColor; }
+
+.tv-like:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Einmal kurz aufziehen und zurueckfedern, sonst bewegt sich hier nichts */
+.tv-like.is-pop svg { animation: like-pop .42s cubic-bezier(.2, .9, .3, 1.4); }
+
+@keyframes like-pop {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.32); }
+  100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tv-like.is-pop svg { animation: none; }
+}
 
 /* --------------------------------------------------------------- Atmosphäre */
 
@@ -160,6 +225,12 @@ body {
   color: var(--bright);
   max-width: 12ch;
   text-wrap: balance;
+}
+
+/* Lange Ortsnamen: eine Stufe kleiner, dafuer breiterer Satzspiegel */
+.tv-album.is-long {
+  font-size: clamp(1.45rem, 6.4vw, 2.3rem);
+  max-width: 19ch;
 }
 
 .tv-sub {
@@ -450,6 +521,7 @@ body {
     grid-template-columns: 40% 60%;
     grid-template-areas:
       'meta stage'
+      '.    react'
       'bar  bar'
       'strip strip';
   }
@@ -474,6 +546,11 @@ body {
     line-height: .86;
     letter-spacing: -.045em;
     max-width: 9ch;
+  }
+
+  .tv-album.is-long {
+    font-size: clamp(2.3rem, 4.4vw, 4.6rem);
+    max-width: 15ch;
   }
 
   .tv-sub { margin-top: 18px; font-size: 11px; }

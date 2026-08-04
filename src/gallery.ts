@@ -12,6 +12,12 @@ function srcset(photo: Photo, ext: string, widths: readonly number[]): string {
   return widths.map((w) => `${photo.base}-${w}.${ext} ${w}w`).join(', ');
 }
 
+/** "Dallas, Texas". Ohne aufgeloesten Ort bleibt es beim Albumnamen. */
+function headline(photo: Photo): string {
+  if (!photo.place) return photo.album;
+  return photo.region ? `${photo.place}, ${photo.region}` : photo.place;
+}
+
 function subLine(photo: Photo): string {
   const bits: string[] = [];
   if (photo.caption) bits.push(photo.caption);
@@ -68,7 +74,7 @@ export function createGallery(photos: Photo[]): Gallery {
     const thumb = document.createElement('button');
     thumb.type = 'button';
     thumb.className = 'tv-thumb';
-    thumb.setAttribute('aria-label', `Foto ${i + 1}: ${photo.album}`);
+    thumb.setAttribute('aria-label', `Foto ${i + 1}: ${headline(photo)}`);
     thumb.innerHTML =
       `<img src="${photo.thumb}" alt="" width="76" height="76" loading="lazy" decoding="async">` +
       `<span class="tv-thumb-label">${pad2(i + 1)}</span>`;
@@ -101,7 +107,7 @@ export function createGallery(photos: Photo[]): Gallery {
 
     const img = document.createElement('img');
     img.src = photo.fallback;
-    img.alt = photo.caption || photo.album;
+    img.alt = photo.caption || headline(photo);
     img.width = photo.w;
     img.height = photo.h;
     img.decoding = 'async';
@@ -131,6 +137,10 @@ export function createGallery(photos: Photo[]): Gallery {
     el.style.opacity = '0';
     window.setTimeout(() => {
       el.textContent = value;
+      // Der Titelblock ist auf kurze Namen ausgelegt. "Space Center Houston, Texas"
+      // laeuft dort auf vier Zeilen und drueckt das Foto zusammen, deshalb faellt
+      // die Schrift ab einer gewissen Laenge eine Stufe zurueck.
+      el.classList.toggle('is-long', value.length > 15);
       el.style.opacity = '';
     }, 160);
   }
@@ -141,9 +151,10 @@ export function createGallery(photos: Photo[]): Gallery {
 
     elIdx.textContent = pad2(i + 1);
     elSub.textContent = subLine(photo);
-    if (photo.album !== currentAlbum) {
-      currentAlbum = photo.album;
-      swapText(elAlbum, photo.album);
+    const head = headline(photo);
+    if (head !== currentAlbum) {
+      currentAlbum = head;
+      swapText(elAlbum, head);
     }
     glow.style.setProperty('--glow', photo.color);
 

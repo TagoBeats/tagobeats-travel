@@ -50,6 +50,12 @@ const DEFAULT_ALBUM = 'Travel';
 /** Aendert sich, wenn sich das Ausgabeformat aendert. Erzwingt dann ein Neurechnen. */
 const RECIPE = 'v2';
 
+/*
+ * Aendert sich, wenn aus dem EXIF andere Felder gelesen werden. Anders als RECIPE
+ * loest das kein Neu-Encoding aus, gecachte Eintraege lesen nur ihr EXIF neu ein.
+ */
+const EXIF_PASS = 2;
+
 const PHOTO_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.tif', '.tiff', '.heic', '.heif']);
 const AUDIO_EXT = new Set(['.mp3', '.wav', '.m4a', '.aif', '.aiff', '.flac', '.ogg']);
 
@@ -252,6 +258,220 @@ async function collectAlbums() {
   return albums;
 }
 
+/* -------------------------------------------------------------------- exif */
+
+/*
+ * Die Aufnahmezeit wird als Wanduhrzeit des Aufnahmeorts gespeichert, ohne Zonen-
+ * Suffix ("2026-07-26T17:49:49"). exifr wuerde den EXIF-String sonst in der Zeitzone
+ * der bauenden Maschine aufloesen: derselbe Build ergaebe in Texas und in Deutschland
+ * verschiedene Zeitstempel, und ein Abendfoto rutschte im Browser auf den Folgetag.
+ */
+function wallClock(value) {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    const m = value.trim().match(/^(\d{4})[:-](\d{2})[:-](\d{2})[T ](\d{2}):(\d{2}):(\d{2})/);
+    return m ? `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}` : null;
+  }
+  if (value instanceof Date && !isNaN(value)) {
+    const p = (n) => String(n).padStart(2, '0');
+    return `${value.getFullYear()}-${p(value.getMonth() + 1)}-${p(value.getDate())}T${p(value.getHours())}:${p(value.getMinutes())}:${p(value.getSeconds())}`;
+  }
+  return null;
+}
+
+/*
+ * Die Drohne schreibt eine falsche Uhrzeit ins EXIF, der Dateiname traegt die richtige
+ * (dji_fly_20260729_134128_...). Weicht beides um mehr als eine Stunde ab, gewinnt der
+ * Dateiname: sonst sortieren die Drohnenbilder an die falsche Stelle des Tages und
+ * verziehen die zeitbasierte Ortszuordnung ihrer Nachbarn.
+ */
+function droneClock(file, taken) {
+  const m = path.basename(file).match(/dji_fly_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/i);
+  if (!m) return taken;
+  const fromName = `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}`;
+  if (!taken) return fromName;
+  const diff = Math.abs(new Date(`${fromName}Z`) - new Date(`${taken}Z`));
+  return diff > 60 * 60 * 1000 ? fromName : taken;
+}
+
+/** Aufnahmezeit, Kamera und Koordinaten. Liest nur die Header, nicht die Pixel. */
+async function readExif(file) {
+  let tags = null;
+  try {
+    // reviveValues: false laesst die Datumsangaben als Rohstring durch, siehe wallClock()
+    tags = await exifr.parse(file, {
+      reviveValues: false,
+      pick: ['DateTimeOriginal', 'CreateDate', 'Model', 'Make'],
+    });
+  } catch {
+    /* EXIF fehlt oder ist kaputt, kein Grund abzubrechen */
+  }
+
+  // Der GPS-Block haengt an einem eigenen IFD und kommt ueber pick() nicht mit
+  let gps = null;
+  try {
+    const g = await exifr.gps(file);
+    if (g && Number.isFinite(g.latitude) && Number.isFinite(g.longitude)) {
+      gps = [+g.latitude.toFixed(5), +g.longitude.toFixed(5)];
+    }
+  } catch {
+    /* kein GPS im Bild */
+  }
+
+  const taken = wallClock(tags?.DateTimeOriginal) || wallClock(tags?.CreateDate);
+
+  return {
+    date: droneClock(file, taken),
+    cam: [tags?.Make, tags?.Model].filter(Boolean).join(' ').trim() || null,
+    gps,
+    ex: EXIF_PASS,
+  };
+}
+
+/* -------------------------------------------------------------- kamera-uhr */
+
+/*
+ * Verschiebt die Aufnahmezeit von Kameras, die falsch gestellt waren. Gerechnet wird
+ * immer vom EXIF-Rohwert in dateRaw, damit wiederholte Laeufe und gecachte Eintraege
+ * nicht mehrfach verschieben. Faellt der passende Eintrag in clock.json weg, steht
+ * wieder der Rohwert da.
+ */
+function applyClockFixes(entries, config) {
+  const fixes = config.fixes || [];
+  let shifted = 0;
+
+  for (const e of entries) {
+    if (!e.dateRaw) e.dateRaw = e.date;
+    if (!e.dateRaw) continue;
+
+    const fix = fixes.find((f) => {
+      if (f.cam && !(e.cam || '').toLowerCase().includes(String(f.cam).toLowerCase())) return false;
+      const from = normWindow(f.from);
+      const to = normWindow(f.to);
+      return (!from || e.dateRaw >= from) && (!to || e.dateRaw < to);
+    });
+
+    if (!fix || !fix.hours) {
+      e.date = e.dateRaw;
+      continue;
+    }
+
+    const d = new Date(`${e.dateRaw}Z`);
+    d.setUTCMinutes(d.getUTCMinutes() + Math.round(fix.hours * 60));
+    e.date = d.toISOString().slice(0, 19);
+    shifted++;
+  }
+
+  return shifted;
+}
+
+/* ------------------------------------------------------------------- places */
+
+/** Ein Reisetag beginnt um 05:00. Was davor liegt, gehoert noch zum Vorabend. */
+const DAY_START_HOUR = 5;
+
+function travelDay(date) {
+  if (!date) return null;
+  const d = new Date(`${date}Z`);
+  d.setUTCHours(d.getUTCHours() - DAY_START_HOUR);
+  return d.toISOString().slice(0, 10);
+}
+
+function distanceKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const rad = Math.PI / 180;
+  const dLat = (lat2 - lat1) * rad;
+  const dLon = (lon2 - lon1) * rad;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+/** "2026-07-27 14:00" -> "2026-07-27T14:00", damit sich Fenster per String vergleichen lassen. */
+const normWindow = (s) => String(s || '').trim().replace(' ', 'T');
+
+/*
+ * Setzt place und region auf allen Eintraegen eines Albums.
+ *
+ * Reihenfolge: files schlaegt windows, windows schlaegt GPS, GPS schlaegt die
+ * zeitliche Vererbung. Fotos ohne eigenes GPS erben vom zeitlich naechsten Foto,
+ * das eins hatte, bevorzugt vom selben Reisetag.
+ */
+function resolvePlaces(entries, config) {
+  const points = config.places || [];
+  const windows = (config.windows || []).map((w) => ({
+    ...w,
+    from: normWindow(w.from),
+    to: normWindow(w.to),
+  }));
+  const files = config.files || {};
+  const byName = new Map(points.map((p) => [p.name, p]));
+  const unmatched = [];
+
+  const apply = (entry, name) => {
+    entry.place = name;
+    entry.region = byName.get(name)?.region || null;
+  };
+
+  for (const e of entries) {
+    e.place = null;
+    e.region = null;
+    let byGps = false;
+
+    if (e.gps && points.length) {
+      let best = null;
+      let bestDist = Infinity;
+      for (const p of points) {
+        const d = distanceKm(e.gps[0], e.gps[1], p.lat, p.lon);
+        if (d < bestDist) {
+          bestDist = d;
+          best = p;
+        }
+      }
+      if (best && bestDist <= (best.km ?? 25)) {
+        apply(e, best.name);
+        byGps = true;
+      } else if (best) {
+        unmatched.push({ file: e.file, gps: e.gps, near: best.name, dist: bestDist });
+      }
+    }
+
+    // Zeitfenster fuellen nur Luecken. Wo echte Koordinaten im Bild stehen, gewinnen die:
+    // ein Fenster ist eine Schaetzung fuer Strecken ohne GPS, keine Korrektur fuer Messwerte.
+    // Fuer wirklich falsches GPS gibt es "files" als letzte Instanz.
+    const win = e.date && windows.find((w) => e.date >= w.from && e.date < w.to);
+    if (win && !byGps) apply(e, win.place);
+
+    const forced = files[e.file];
+    if (forced) apply(e, forced);
+  }
+
+  // Vererbung: alles was jetzt noch offen ist, haengt sich an den naechsten Nachbarn
+  const anchors = entries.filter((e) => e.place && e.date);
+  if (anchors.length) {
+    for (const e of entries) {
+      if (e.place || !e.date) continue;
+      const day = travelDay(e.date);
+      const sameDay = anchors.filter((a) => travelDay(a.date) === day);
+      const pool = sameDay.length ? sameDay : anchors;
+      const t = new Date(`${e.date}Z`);
+      let near = pool[0];
+      let bestGap = Infinity;
+      for (const a of pool) {
+        const gap = Math.abs(new Date(`${a.date}Z`) - t);
+        if (gap < bestGap) {
+          bestGap = gap;
+          near = a;
+        }
+      }
+      apply(e, near.place);
+    }
+  }
+
+  return unmatched;
+}
+
 /* ------------------------------------------------------------------ photos */
 
 async function processPhoto(file, album, albumSlug, name, cache) {
@@ -269,6 +489,8 @@ async function processPhoto(file, album, albumSlug, name, cache) {
       // Aelterer Cache kennt die Pixel-Signatur noch nicht: einmal nachziehen.
       // Kostet nur einen Decode, kein erneutes Encoding.
       if (!cached.sig) cached.sig = await pixelSig(file);
+      // Dasselbe fuer EXIF-Felder, die es beim Anlegen des Caches noch nicht gab
+      if (cached.entry.ex !== EXIF_PASS) Object.assign(cached.entry, await readExif(file));
       return { entry: cached.entry, sig: cached.sig, skipped: true };
     }
   }
@@ -328,13 +550,7 @@ async function processPhoto(file, album, albumSlug, name, cache) {
   const stats = await sharp(base).stats();
   const dom = stats.dominant || { r: 26, g: 24, b: 21 };
 
-  let exif = null;
-  try {
-    exif = await exifr.parse(file, { pick: ['DateTimeOriginal', 'CreateDate', 'Model', 'Make', 'latitude', 'longitude'] });
-  } catch {
-    /* EXIF fehlt oder ist kaputt, kein Grund abzubrechen */
-  }
-  const taken = exif?.DateTimeOriginal || exif?.CreateDate || null;
+  const exif = await readExif(file);
 
   const entry = {
     id: `${albumSlug}/${slug}`,
@@ -349,9 +565,9 @@ async function processPhoto(file, album, albumSlug, name, cache) {
     h: srcH,
     lqip: `data:image/webp;base64,${lqipBuf.toString('base64')}`,
     color: hex(dom.r, dom.g, dom.b),
-    date: taken ? new Date(taken).toISOString() : null,
-    cam: [exif?.Make, exif?.Model].filter(Boolean).join(' ').trim() || null,
-    gps: exif?.latitude && exif?.longitude ? [+exif.latitude.toFixed(5), +exif.longitude.toFixed(5)] : null,
+    ...exif,
+    place: null,
+    region: null,
     caption: null,
     bytes,
   };
@@ -498,6 +714,8 @@ async function main() {
   await ensureGrain();
 
   /* --- Fotos --- */
+  const placeConfig = await readJson(path.join(ROOT, 'media', 'places.json'), {});
+  const clockConfig = await readJson(path.join(ROOT, 'media', 'clock.json'), {});
   const albums = await collectAlbums();
   const photos = [];
   const albumMeta = [];
@@ -558,6 +776,10 @@ async function main() {
       .filter((r) => !r.sig || sigWinners.has(r))
       .map((r) => r.entry);
 
+    // Falsch gestellte Kamera-Uhren geradeziehen, bevor nach Datum sortiert wird
+    const shifted = applyClockFixes(entries, clockConfig);
+    if (shifted) console.log(`    Uhrzeit korrigiert: ${shifted} Fotos (siehe media/clock.json)`);
+
     // Sortierung: order.txt gewinnt, danach Aufnahmedatum, danach Dateiname
     const orderIndex = new Map(order.map((name, i) => [name, i]));
     entries.sort((a, b) => {
@@ -568,9 +790,23 @@ async function main() {
       return a.file.localeCompare(b.file, 'de');
     });
 
+    const unmatched = resolvePlaces(entries, placeConfig);
+    for (const u of unmatched) {
+      console.log(
+        `    Ort unbekannt: ${u.file} bei ${u.gps[0]}, ${u.gps[1]} ` +
+          `(naechster: ${u.near}, ${u.dist.toFixed(0)} km) -> in media/places.json nachtragen`
+      );
+    }
+    const places = new Map();
+    for (const e of entries) places.set(e.place, (places.get(e.place) || 0) + 1);
+    for (const [place, n] of places) console.log(`    Ort: ${place || '(offen)'} -> ${n} Fotos`);
+
     for (const e of entries) {
       totalBytes += e.bytes || 0; // bereits gecachte Eintraege tragen keine Byte-Zahl mehr
       delete e.bytes;
+      // dateRaw bleibt nur stehen, wo wirklich verschoben wurde. Es muss im Cache
+      // ueberleben, sonst wuerde der naechste Lauf die korrigierte Zeit erneut schieben.
+      if (e.dateRaw === e.date) delete e.dateRaw;
       photos.push(e);
     }
 

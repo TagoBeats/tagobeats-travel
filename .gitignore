@@ -7,6 +7,7 @@ dist/
 media/photos/*
 media/beats/*
 media/_dupes/
+media/_alt/
 !media/photos/README.md
 !media/beats/README.md
 !media/beats/links.json

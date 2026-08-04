@@ -1,0 +1,55 @@
+{
+  "_doc": [
+    "Ortsnamen fuer die Galerie. build-media.mjs loest daraus pro Foto ein 'place' auf.",
+    "",
+    "places:  benannte Punkte. Ein Foto mit GPS bekommt den naechsten Punkt, sofern es",
+    "         innerhalb von 'km' liegt. Passt keiner, meldet der Build den Fund mit",
+    "         Koordinaten, damit hier ein Eintrag nachgezogen werden kann.",
+    "windows: Zeitfenster in Ortszeit, fuellen nur Luecken. Ein Foto mit brauchbarem GPS",
+    "         behaelt seinen gemessenen Ort, das Fenster greift nur wo GPS fehlt oder",
+    "         zu weit von jedem Punkt weg liegt. Fuer Strecken ohne GPS-Foto.",
+    "files:   letzte Instanz, Dateiname = Ortsname. Schlaegt GPS und Zeitfenster. Fuer",
+    "         Faelle, in denen das GPS im Bild nachweislich falsch ist.",
+    "",
+    "Fotos ohne GPS erben den Ort vom zeitlich naechsten Foto mit GPS, bevorzugt vom",
+    "gleichen Reisetag. Ein Reisetag beginnt um 05:00, Nachtfotos zaehlen zum Vorabend."
+  ],
+
+  "places": [
+    { "name": "Dallas", "region": "Texas", "lat": 32.783, "lon": -96.796, "km": 30 },
+    { "name": "Fort Worth", "region": "Texas", "lat": 32.7555, "lon": -97.3308, "km": 25 },
+    { "name": "Waxahachie", "region": "Texas", "lat": 32.3862, "lon": -96.8478, "km": 15 },
+    { "name": "Glen Rose", "region": "Texas", "lat": 32.2497, "lon": -97.8117, "km": 20 },
+    { "name": "Austin", "region": "Texas", "lat": 30.27, "lon": -97.748, "km": 25 },
+    { "name": "Fredericksburg", "region": "Texas", "lat": 30.2752, "lon": -98.872, "km": 20 },
+    { "name": "Lockhart", "region": "Texas", "lat": 29.8845, "lon": -97.671, "km": 15 },
+    { "name": "San Antonio", "region": "Texas", "lat": 29.598, "lon": -98.5708, "km": 40 },
+    { "name": "Space Center Houston", "region": "Texas", "lat": 29.552, "lon": -95.098, "km": 12 },
+    { "name": "Houston", "region": "Texas", "lat": 29.76, "lon": -95.37, "km": 30 },
+    { "name": "Galveston", "region": "Texas", "lat": 29.311, "lon": -94.766, "km": 20 },
+    { "name": "St. Francisville", "region": "Louisiana", "lat": 30.781, "lon": -91.3754, "km": 25 }
+  ],
+
+  "windows": [
+    {
+      "from": "2026-07-27 14:00",
+      "to": "2026-07-28 05:00",
+      "place": "Austin",
+      "note": "Ankunft aus Waxahachie. DSC01438 um 19:18 zeigt die Austin-Skyline, DSC01424 um 15:23 den Barton Creek."
+    },
+    {
+      "from": "2026-07-31 05:00",
+      "to": "2026-07-31 16:00",
+      "place": "San Antonio",
+      "note": "Kein GPS an dem Tag. DSC01550 um 09:55 zeigt den River Walk."
+    },
+    {
+      "from": "2026-07-31 16:00",
+      "to": "2026-08-01 05:00",
+      "place": "Houston",
+      "note": "DSC01613 um 19:04 zeigt Downtown Houston, DSC01605 die Anfahrt."
+    }
+  ],
+
+  "files": {}
+}
