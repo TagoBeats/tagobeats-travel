@@ -578,6 +578,42 @@ async function processPhoto(file, album, albumSlug, name, cache) {
 
 /* ------------------------------------------------------------------- beats */
 
+/*
+ * Aus dem Dateinamen wird der Titel, der in der Playbar ueber dem Foto steht. Die
+ * Rohdateien tragen Arbeitsangaben, die dort nichts verloren haben: "heal 160BPM
+ * @TagoBeats @TimHouse.wav" soll "Heal" heissen, nicht "HEAL 160BPM @TAGOBEATS".
+ *
+ * Entfernt werden Handles, BPM-Zahlen und eine direkt anhaengende Tonart. Die
+ * Tonart faellt nur zusammen mit der Zahl, damit ein Titel wie "Am I Wrong" nicht
+ * sein "Am" verliert. Jede Aenderung meldet der Build, damit ein zu gieriger
+ * Treffer auffaellt und ueber den Dateinamen korrigiert werden kann.
+ */
+function beatTitle(file) {
+  const raw = path.basename(file, path.extname(file)).replace(/_+/g, ' ').trim();
+  const cleaned = raw
+    .replace(/@[\w.-]+/g, ' ')
+    /*
+     * Die abschliessende Wortgrenze ist entscheidend: ohne sie wuerde aus "24k Magic"
+     * ein "K Magic", weil die 24 als BPM durchgeht. Und eine nackte Zahl faellt nur,
+     * wenn sie als Tempo durchgehen kann, sonst verloere "Area 51" seine 51.
+     */
+    .replace(/\b(\d{2,3})(\s*bpm)?(\s+[A-G](#|b)?(m|maj|min)?)?\b/gi, (hit, num, bpm) =>
+      bpm || (Number(num) >= 60 && Number(num) <= 200) ? ' ' : hit
+    )
+    .replace(/\s{2,}/g, ' ')
+    .replace(/[\s,-]+$/, '')
+    .trim();
+
+  const title = (cleaned || raw)
+    .split(' ')
+    // Nur durchgehend kleingeschriebene Woerter anfassen, sonst wuerde aus "RV" ein "Rv"
+    .map((w) => (/^[a-z]/.test(w) ? w[0].toUpperCase() + w.slice(1) : w))
+    .join(' ');
+
+  if (title !== raw) console.log(`    Titel: "${raw}" -> "${title}"`);
+  return title;
+}
+
 async function probeDuration(file) {
   try {
     const { stdout } = await execFileAsync('ffprobe', [
@@ -614,7 +650,7 @@ async function processBeat(file, name, cache, links) {
     outFile,
   ]);
 
-  const title = path.basename(file, path.extname(file)).replace(/[_]+/g, ' ').trim();
+  const title = beatTitle(file);
   const entry = {
     id: name,
     title,
@@ -848,6 +884,13 @@ async function main() {
         totalBytes += res.entry.bytes || 0;
       }
       const { bytes, ...entry } = res.entry;
+      /*
+       * Titel und Link frisch aus links.json ziehen statt aus dem Cache. Beides sind
+       * Angaben, die sich ohne neues Transkodieren aendern koennen: ein nachgetragener
+       * Link blieb sonst unsichtbar, bis die Audiodatei selbst angefasst wird.
+       */
+      entry.title = beatTitle(file);
+      entry.link = links[entry.title] || links[path.basename(file)] || null;
       beats.push(entry);
     } catch (err) {
       console.error(`    FEHLER bei ${path.basename(file)}: ${err.message}`);
