@@ -92,9 +92,10 @@ async function boot() {
     player.setArtwork((e as CustomEvent<Photo>).detail);
   });
 
-  await loader.run();
+  // Der Ton startet im Tap-Handler selbst, siehe loader.run(). Der zweite Aufruf
+  // unten ist nur das Netz fuer den ?enter-Fall und laeuft dank started-Flag leer.
+  await loader.run(() => player.start());
 
-  // ab hier ist der Enter-Tap passiert, also darf Audio starten
   player.start();
   root.removeAttribute('inert');
   root.classList.add('is-live');

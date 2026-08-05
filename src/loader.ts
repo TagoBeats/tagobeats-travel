@@ -33,8 +33,15 @@ export function createLoader() {
     jobs.push(withTimeout(promise, timeout).then(() => { done++; }));
   }
 
-  /** Laeuft bis 100 Prozent, zeigt dann den Enter-Screen und wartet auf den Tap. */
-  function run(): Promise<void> {
+  /**
+   * Laeuft bis 100 Prozent, zeigt dann den Enter-Screen und wartet auf den Tap.
+   *
+   * `onEnter` wird synchron im Tap-Handler ausgefuehrt, bevor das Versprechen
+   * aufgeloest wird. Das ist der einzige Moment, in dem iOS ein play() durchlaesst:
+   * die Freigabe haengt dort am Event-Stack der Geste, und alles nach dem
+   * `await` in main.ts laeuft als Microtask ausserhalb davon.
+   */
+  function run(onEnter?: () => void): Promise<void> {
     const t0 = performance.now();
     let p = 0;
     let allDone = false;
@@ -61,7 +68,7 @@ export function createLoader() {
 
         if (allDone && p > 0.995) {
           bar.style.width = '100%';
-          finish(resolve);
+          finish(resolve, onEnter);
           return;
         }
         requestAnimationFrame(step);
@@ -70,12 +77,14 @@ export function createLoader() {
     });
   }
 
-  function finish(resolve: () => void) {
+  function finish(resolve: () => void, onEnter?: () => void) {
     enter.classList.add('is-on');
     let entered = false;
     const go = () => {
       if (entered) return;
       entered = true;
+      // Noch in der Geste: hier und nur hier laesst iOS den Ton starten
+      onEnter?.();
       boot.classList.add('is-gone');
       window.setTimeout(() => boot.remove(), 700);
       resolve();
