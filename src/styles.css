@@ -207,6 +207,185 @@ body {
 .tv-count #tv-idx { color: var(--accent); }
 .tv-count i { font-style: normal; opacity: .4; }
 
+/* ------------------------------------------------------------- Kapitel */
+
+.tv-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Die Kopfzeile liegt als Overlay ueber der Buehne und laesst Zeiger durch,
+   die Bedienelemente darin muessen sie wieder einfangen. */
+.tv-chapters {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  pointer-events: auto;
+}
+
+.tv-chap-arrow,
+.tv-chap-open {
+  display: flex;
+  align-items: center;
+  border: 0;
+  background: none;
+  color: rgba(236, 231, 222, .62);
+  cursor: pointer;
+  font-family: 'Space Mono', monospace;
+  -webkit-tap-highlight-color: transparent;
+  transition: color .2s ease, opacity .2s ease;
+}
+
+.tv-chap-arrow {
+  padding: 6px 2px;
+  justify-content: center;
+}
+
+.tv-chap-arrow svg { width: 18px; height: 18px; }
+
+.tv-chap-open {
+  gap: 8px;
+  padding: 6px 6px 6px 10px;
+  font-size: 11px;
+  letter-spacing: .24em;
+  text-transform: uppercase;
+}
+
+.tv-chap-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 15px;
+}
+
+.tv-chap-bars i {
+  height: 1.5px;
+  background: currentColor;
+  display: block;
+}
+
+/* Der zweite Strich ist kuerzer, wie im Menue auf tagobeats.com */
+.tv-chap-bars i:last-child { width: 65%; }
+
+.tv-chap-arrow:hover,
+.tv-chap-open:hover { color: var(--bright); }
+
+.tv-chap-arrow:disabled { opacity: .25; cursor: default; }
+.tv-chap-arrow:disabled:hover { color: rgba(236, 231, 222, .62); }
+
+.tv-chap-arrow:focus-visible,
+.tv-chap-open:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+
+/* ------------------------------------------------------- Ortsliste */
+
+.tv-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  padding: calc(var(--pad) + env(safe-area-inset-top, 0px)) var(--pad)
+           calc(var(--pad) + var(--safe-b));
+  /* Auf tagobeats.com liegen die 97 Prozent ueber dunklem Grund. Hier steht ein
+     helles Foto dahinter, das sich durch den Rest sichtbar durchzeichnet, deshalb
+     etwas dichter plus Weichzeichner wo der Browser ihn kann. */
+  background: rgba(13, 12, 10, .985);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  animation: sheet-in .22s ease;
+}
+
+.tv-sheet[hidden] { display: none; }
+
+@keyframes sheet-in { from { opacity: 0; } to { opacity: 1; } }
+
+.tv-sheet-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: none;
+}
+
+.tv-sheet-eyebrow {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  letter-spacing: .3em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.tv-sheet-close {
+  border: 0;
+  background: none;
+  color: var(--text);
+  font-size: 26px;
+  line-height: 1;
+  padding: 6px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tv-sheet-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 18px 0;
+}
+
+.tv-place {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  border: 0;
+  background: none;
+  padding: 7px 0;
+  color: var(--bright);
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: clamp(1.5rem, 6.4vw, 3.1rem);
+  font-weight: 800;
+  letter-spacing: -.03em;
+  line-height: 1.04;
+  -webkit-tap-highlight-color: transparent;
+  transition: color .2s ease;
+}
+
+.tv-place-n {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: .18em;
+  color: rgba(236, 231, 222, .38);
+  flex: none;
+}
+
+.tv-place:hover { color: var(--accent); }
+
+.tv-place.is-here { color: var(--accent); }
+.tv-place.is-here .tv-place-n { color: var(--accent-2); }
+
+.tv-sheet-foot {
+  flex: none;
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  letter-spacing: .2em;
+  color: rgba(236, 231, 222, .35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tv-sheet { animation: none; }
+}
+
 /* Album und Aufnahmedaten haengen auf einer Grundlinie, getrennt durch einen Bindestrich */
 .tv-line {
   display: flex;

@@ -4,6 +4,7 @@ import { createPlayer } from './audio';
 import { createLoader } from './loader';
 import { createZoom, lockPageScale } from './zoom';
 import { createLikes } from './likes';
+import { createChapters } from './chapters';
 import type { Manifest, Photo } from './types';
 
 const EMPTY: Manifest = { generated: '', albums: [], photos: [], beats: [] };
@@ -84,6 +85,7 @@ async function boot() {
   trackHeaderHeight();
   createZoom(document.getElementById('tv-track') as HTMLElement);
   createLikes(manifest.photos[0]);
+  createChapters(manifest.photos, gallery);
 
   const player = createPlayer(manifest.beats);
   loader.track(player.ready(), 4000);

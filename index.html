@@ -52,12 +52,39 @@
   <a class="tv-home" href="https://tagobeats.com" rel="noopener">TAGOBEATS<i>/</i><span>TRAVEL</span></a>
 
   <header class="tv-meta">
-    <div class="tv-count"><span id="tv-idx">01</span><i>/</i><span id="tv-total">00</span></div>
+    <div class="tv-head">
+      <div class="tv-count"><span id="tv-idx">01</span><i>/</i><span id="tv-total">00</span></div>
+
+      <!-- Kapitel: ein Ort ist ein zusammenhaengender Block, die Pfeile springen an dessen Anfang -->
+      <div class="tv-chapters">
+        <button class="tv-chap-arrow" id="tv-place-prev" type="button" aria-label="Voriger Ort">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12l7 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="tv-chap-open" id="tv-place-menu" type="button" aria-haspopup="dialog" aria-expanded="false">
+          <span>Orte</span>
+          <span class="tv-chap-bars" aria-hidden="true"><i></i><i></i></span>
+        </button>
+        <button class="tv-chap-arrow" id="tv-place-next" type="button" aria-label="Nächster Ort">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </div>
+
     <div class="tv-line">
       <h1 class="tv-album" id="tv-album"></h1>
       <p class="tv-sub" id="tv-sub"></p>
     </div>
   </header>
+
+  <!-- Ortsliste als Vollbild-Ebene, im Zuschnitt des Menues auf tagobeats.com -->
+  <div class="tv-sheet" id="tv-sheet" role="dialog" aria-modal="true" aria-label="Orte" hidden>
+    <div class="tv-sheet-top">
+      <span class="tv-sheet-eyebrow">Orte</span>
+      <button class="tv-sheet-close" id="tv-sheet-close" type="button" aria-label="Schließen">✕</button>
+    </div>
+    <nav class="tv-sheet-list" id="tv-sheet-list"></nav>
+    <div class="tv-sheet-foot">TAGOBEATS · TRAVEL</div>
+  </div>
 
   <div class="tv-stage">
     <div class="tv-track" id="tv-track" tabindex="0" aria-label="Fotostrecke"></div>

@@ -836,6 +836,45 @@ async function main() {
           `(naechster: ${u.near}, ${u.dist.toFixed(0)} km) -> in media/places.json nachtragen`
       );
     }
+    /*
+     * Nach Ort gruppieren, damit jeder Ort in der Galerie ein zusammenhaengendes
+     * Kapitel bildet. Ohne das zerfaellt die Reise in 17 Abschnitte, weil Austin
+     * dreimal vorkommt und Dallas, San Antonio und Galveston je zweimal.
+     *
+     * Wo ein Ort in der Reise steht, bestimmt sein frueheste Aufenthalt, aber nur
+     * Aufenthalte ab MIN_BLOCK Fotos zaehlen. Beide naheliegenden Regeln haben je
+     * einen blinden Fleck: nach dem ersten Auftreten zoege ein einzelnes
+     * Ausreisser-Foto den Ort nach vorn (die Drohne war am 31.07. kurz ueber
+     * Galveston, waehrend die Fahrt nach Houston ging), nach dem groessten Block
+     * stuende Fort Worth vor Dallas, weil der groessere Dallas-Block erst danach
+     * kommt. Hat ein Ort nur Streubloecke, zaehlt sein fruehester.
+     *
+     * Innerhalb eines Orts bleibt es chronologisch, weil hier stabil und
+     * ausschliesslich nach dem Rang des Orts sortiert wird.
+     */
+    const MIN_BLOCK = 3;
+    const blocks = [];
+    for (const e of entries) {
+      const last = blocks[blocks.length - 1];
+      if (last && last.place === e.place) last.n++;
+      else blocks.push({ place: e.place, n: 1, at: e.date || '9999' });
+    }
+    const anchor = new Map();
+    for (const b of blocks) {
+      const cur = anchor.get(b.place);
+      const solid = b.n >= MIN_BLOCK;
+      // Ein richtiger Aufenthalt schlaegt jeden Streublock, sonst gewinnt der fruehere
+      if (!cur || (solid && !cur.solid) || (solid === cur.solid && b.at < cur.at)) {
+        anchor.set(b.place, { at: b.at, solid });
+      }
+    }
+    const placeRank = new Map(
+      [...anchor.entries()]
+        .sort((a, b) => a[1].at.localeCompare(b[1].at))
+        .map(([place], i) => [place, i])
+    );
+    entries.sort((a, b) => placeRank.get(a.place) - placeRank.get(b.place));
+
     const places = new Map();
     for (const e of entries) places.set(e.place, (places.get(e.place) || 0) + 1);
     for (const [place, n] of places) console.log(`    Ort: ${place || '(offen)'} -> ${n} Fotos`);
