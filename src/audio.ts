@@ -114,9 +114,37 @@ export function createPlayer(beats: Beat[]): Player {
 
   /* ---------------------------------------------------------- Playback */
 
+  /*
+   * Weist der Browser die Wiedergabe ab, muss die Playbar das zeigen. Vorher wurde die
+   * Ablehnung still verschluckt: die Leiste stand auf "laeuft", obwohl nichts lief, und
+   * der erste Druck auf Play pausierte nur den Stillstand. Es brauchte also zwei Druecke.
+   *
+   * Der Rueckfall in den Pause-Zustand macht daraus einen: das Symbol zeigt Play, ein
+   * Druck startet den Ton, und der zaehlt sicher als Geste.
+   */
   function play(el: HTMLAudioElement) {
     const p = el.play();
-    if (p) p.catch(() => { /* Autoplay blockiert, der Enter-Tap holt das nach */ });
+    if (p) p.catch(() => { if (el === current) setPaused(true); });
+  }
+
+  /*
+   * iOS gibt jedes Audio-Element einzeln frei, und nur innerhalb einer echten Geste.
+   * Das Ersatz-Element wird erst beim Titelwechsel gebraucht, da ist die Geste laengst
+   * vorbei und der Ton bliebe ab dem zweiten Beat stumm. Deshalb hier einmal kurz
+   * anspielen und sofort wieder anhalten, solange der Tap noch zaehlt.
+   */
+  function unlock(el: HTMLAudioElement) {
+    if (!el.src && queue.length > 1) el.src = queue[1].src;
+    if (!el.src) return;
+    el.muted = true;
+    const p = el.play();
+    if (p) {
+      p.then(() => {
+        el.pause();
+        el.currentTime = 0;
+        el.muted = muted;
+      }).catch(() => { el.muted = muted; });
+    }
   }
 
   /** Naechsten Beat still vorpuffern, damit der Crossfade nicht in eine Leerstelle faellt. */
@@ -248,6 +276,7 @@ export function createPlayer(beats: Beat[]): Player {
       current.preload = 'auto';
       current.volume = 1;
       play(current);
+      unlock(spare);
       paintTitle(queue[0]);
     },
     ready() {

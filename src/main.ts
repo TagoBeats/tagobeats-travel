@@ -5,6 +5,7 @@ import { createLoader } from './loader';
 import { createZoom, lockPageScale } from './zoom';
 import { createLikes } from './likes';
 import { createChapters } from './chapters';
+import { inject } from '@vercel/analytics';
 import type { Manifest, Photo } from './types';
 
 const EMPTY: Manifest = { generated: '', albums: [], photos: [], beats: [] };
@@ -61,10 +62,25 @@ function trackHeaderHeight() {
   else window.addEventListener('resize', write);
 }
 
+/*
+ * Vercel Web Analytics. Script und Sammelpunkt liegen normalerweise unter /_vercel,
+ * das trifft hier aber die Hauptseite: die Galerie haengt per Rewrite unter
+ * tagobeats.com/travel, und tagobeats.com/_vercel gehoert dem Website-Projekt. Beide
+ * Pfade laufen deshalb ueber BASE_URL und damit durch das Rewrite ins eigene Projekt.
+ */
+function startAnalytics() {
+  const base = import.meta.env.BASE_URL;
+  inject({
+    scriptSrc: `${base}_vercel/insights/script.js`,
+    endpoint: `${base}_vercel/insights`,
+  });
+}
+
 async function boot() {
   const loader = createLoader();
   const root = document.getElementById('tv') as HTMLElement;
   lockPageScale();
+  startAnalytics();
 
   const manifestPromise = loadManifest();
   loader.track(manifestPromise, 5000);

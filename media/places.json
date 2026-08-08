@@ -27,7 +27,8 @@
     { "name": "Space Center Houston", "region": "Texas", "lat": 29.552, "lon": -95.098, "km": 12 },
     { "name": "Houston", "region": "Texas", "lat": 29.76, "lon": -95.37, "km": 30 },
     { "name": "Galveston", "region": "Texas", "lat": 29.311, "lon": -94.766, "km": 20 },
-    { "name": "St. Francisville", "region": "Louisiana", "lat": 30.781, "lon": -91.3754, "km": 25 }
+    { "name": "St. Francisville", "region": "Louisiana", "lat": 30.781, "lon": -91.3754, "km": 25 },
+    { "name": "Oak Alley Plantation", "region": "Louisiana", "lat": 30.0044, "lon": -90.776, "km": 6 }
   ],
 
   "windows": [
@@ -52,6 +53,7 @@
   ],
 
   "files": {
-    "c8d9229b-06f7-4918-b0f2-ed7e54e57232.jpeg": "Galveston"
+    "c8d9229b-06f7-4918-b0f2-ed7e54e57232.jpeg": "Galveston",
+    "IMG_0020.png": "Oak Alley Plantation"
   }
 }
